@@ -1,66 +1,100 @@
-# Member 1 — AI Agent & Conversation System
+# Adaptive Memory Evolution Framework for Long-Term AI Agents
 
-Starter implementation for the conversation/backend module of the
-Adaptive Memory Evolution Framework project.
+Four-person project. Each member owns one folder; a shared contract in
+`shared/interfaces.py` is how the folders talk to each other without
+needing to know each other's internals.
 
-## What's here
+## Folder structure
 
-| File | Responsibility |
-|---|---|
-| `main.py` | FastAPI backend, exposes `POST /chat` |
-| `llm_connector.py` | Connects to the LLM (Anthropic or OpenAI) |
-| `conversation_manager.py` | Combines retrieved memories with the query, generates the response |
-| `memory_interface.py` | The contract with the Memory module (Member 2/3), plus a mock for testing |
-| `requirements.txt` | Dependencies |
+```
+adaptive-memory-agent/
+├── shared/interfaces.py            # contracts everyone codes against
+├── member1_conversation/           # Member 1: chatbot + LLM + response generation
+├── member2_memory_storage/         # Member 2: storing/retrieving memories
+├── member3_memory_evolution/       # Member 3: decay, forgetting, importance updates
+├── member4_evaluation_ui/          # Member 4: frontend + evaluation scripts
+├── app/main.py                     # wires all four modules into one backend
+├── requirements.txt
+├── .env.example
+└── .gitignore
+```
+
+If your team split responsibilities differently than assumed here,
+rename the folders to match and adjust `shared/interfaces.py` — the
+overall layout still works.
 
 ## Setup
 
 ```bash
+git clone <your-repo-url>
+cd adaptive-memory-agent
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY="sk-ant-..."   # or OPENAI_API_KEY if using OpenAI
-uvicorn main:app --reload
+cp .env.example .env            # then fill in your real API key
 ```
 
-## Test it
+## Run the whole system
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Then open `member4_evaluation_ui/chat_ui.html` directly in a browser,
+or test with curl:
 
 ```bash
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
-  -d '{"user_id": "u1", "message": "What did I tell you about my project last time?"}'
+  -d '{"user_id": "u1", "message": "My favorite language is Python"}'
 ```
 
-You should get back a JSON response. Because `MockMemoryStore` is wired in
-by default, the model will see a couple of fake memories in its system
-prompt — check the response reflects them.
+Always run Python commands from the project root (not from inside a
+member's subfolder) — the imports assume the root is on the path.
 
-## Switching LLM provider
+## Testing your own module before others are ready
 
-In `main.py`:
+Each module implements an abstract interface from `shared/interfaces.py`.
+That means you can write a 5-line fake/mock implementation of a
+teammate's interface to unblock your own testing, then swap in their
+real class later without touching your code — that's the whole point
+of coding against the interface instead of a concrete class.
 
-```python
-llm = LLMConnector(provider="anthropic", model="claude-sonnet-4-6")
-# or
-llm = LLMConnector(provider="openai", model="gpt-4o")
-```
+## Team git workflow — adding everyone's files
 
-## Integrating with Member 2/3's memory module
+1. **Create the repo.** One person creates a GitHub repository and pushes
+   this starter project as the first commit on `main`.
+2. **Add collaborators.** On GitHub: Settings → Collaborators and teams →
+   Add people → enter each teammate's GitHub username or email. They'll
+   get an email invite to accept.
+3. **Everyone clones it.** Each member runs `git clone <repo-url>` locally.
+4. **One branch per member.** Each person creates a branch named after
+   their module, e.g. `git checkout -b member2-memory-storage`. Working
+   in separate branches (and separate folders) means your changes won't
+   collide with a teammate's while you're both mid-task.
+5. **Work only inside your own folder.** Member 2 edits files under
+   `member2_memory_storage/` (and, if the team agrees, proposes changes
+   to `shared/interfaces.py` in their own small commit that everyone
+   reviews). Commit regularly: `git add member2_memory_storage/ && git commit -m "..."`.
+6. **Push and open a pull request.** `git push origin member2-memory-storage`,
+   then open a PR into `main` on GitHub.
+7. **Get a review before merging.** Have at least one other teammate look
+   at the PR — this is when integration problems (a function signature
+   that doesn't quite match `shared/interfaces.py`) get caught early.
+8. **Merge, then everyone pulls.** After merging to `main`, everyone runs
+   `git pull origin main` to stay in sync — do this before you start a
+   new work session.
+9. **Integrate often.** Don't wait until the deadline to run `app/main.py`
+   with all four real modules plugged in. Do it weekly so integration
+   bugs surface while there's still time to fix them.
+10. **Track tasks.** Use GitHub Issues (or a simple shared doc) with one
+    checklist per member, so it's visible who's blocked on whose interface.
 
-Your two modules only need to agree on `memory_interface.py`. Once their
-real memory store implements `MemoryStoreInterface` (both `retrieve_relevant`
-and `store_interaction`), swap it in `main.py`:
+## Module ownership
 
-```python
-from real_memory_store import RealMemoryStore
-memory_store = RealMemoryStore()   # instead of MockMemoryStore()
-```
-
-Nothing else in `conversation_manager.py` or `main.py` needs to change —
-that's the whole point of coding against the interface first.
-
-## Next steps beyond this starter
-
-- Add conversation history persistence across restarts (currently in-memory only)
-- Add authentication if multiple real users will hit the API
-- Add a simple frontend (a chat widget, or even just a CLI loop) that calls `/chat`
-- Add error handling for LLM API failures/timeouts
-- Log token usage if your project needs to track cost
+| Folder | Owner | Implements |
+|---|---|---|
+| `member1_conversation/` | Member 1 | Chat backend, LLM connection, prompt building, response generation |
+| `member2_memory_storage/` | Member 2 | `MemoryStoreInterface` — store and retrieve memories |
+| `member3_memory_evolution/` | Member 3 | `MemoryEvolutionInterface` — decay, forgetting, importance updates |
+| `member4_evaluation_ui/` | Member 4 | Chat frontend, evaluation scripts |
